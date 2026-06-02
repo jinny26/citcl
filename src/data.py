@@ -75,7 +75,7 @@ def load_scicite_data(tokenizer, args):
     Label mapping: method -> 0, background -> 1, result -> 2
     """
     print("Loading SciCite dataset from Hugging Face...")
-    raw_dataset = load_dataset("allenai/scicite")
+    raw_dataset = load_dataset("allenai/scicite", trust_remote_code=True)
     
     train_dataset = preprocess_dataset(
         raw_dataset["train"], 
@@ -117,7 +117,7 @@ def load_acl_arc_data(tokenizer, args):
     Loads and tokenizes the ACL-ARC dataset from Hugging Face.
     """
     print("Loading ACL-ARC dataset from Hugging Face...")
-    raw_dataset = load_dataset("kejian/ACL-ARC")
+    raw_dataset = load_dataset("kejian/ACL-ARC", trust_remote_code=True)
     
     train_dataset = preprocess_dataset(
         raw_dataset["train"], 
