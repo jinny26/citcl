@@ -1,6 +1,7 @@
 import os
 import json
 import urllib.request
+import tarfile
 import pandas as pd
 from datasets import Dataset, DatasetDict, load_dataset
 
@@ -71,11 +72,35 @@ def preprocess_dataset(dataset, text_col, label_col, tokenizer, max_length, quic
 
 def load_scicite_data(tokenizer, args):
     """
-    Loads and tokenizes the SciCite dataset from Hugging Face.
+    Loads and tokenizes the SciCite dataset.
+    Downloads the raw dataset from AI2 S3 bucket if not present locally, bypasses HF loading scripts.
     Label mapping: method -> 0, background -> 1, result -> 2
     """
-    print("Loading SciCite dataset from Hugging Face...")
-    raw_dataset = load_dataset("allenai/scicite", trust_remote_code=True)
+    scicite_dir = os.path.join(args.output_dir, "scicite")
+    train_file = os.path.join(scicite_dir, "scicite", "train.jsonl")
+    val_file = os.path.join(scicite_dir, "scicite", "dev.jsonl")
+    test_file = os.path.join(scicite_dir, "scicite", "test.jsonl")
+    
+    if not os.path.exists(train_file):
+        print("Downloading SciCite dataset archive from S3...")
+        os.makedirs(scicite_dir, exist_ok=True)
+        tar_path = os.path.join(scicite_dir, "scicite.tar.gz")
+        url = "https://s3-us-west-2.amazonaws.com/ai2-s2-research/scicite/scicite.tar.gz"
+        try:
+            urllib.request.urlretrieve(url, tar_path)
+            print("Extracting SciCite dataset archive...")
+            with tarfile.open(tar_path, "r:gz") as tar:
+                tar.extractall(path=scicite_dir)
+            print("Extraction completed successfully.")
+        except Exception as e:
+            raise RuntimeError(f"Failed to download/extract SciCite dataset from {url}: {e}")
+            
+    print(f"Loading SciCite dataset from local JSONL files in {scicite_dir}...")
+    raw_dataset = load_dataset("json", data_files={
+        "train": train_file,
+        "validation": val_file,
+        "test": test_file
+    })
     
     train_dataset = preprocess_dataset(
         raw_dataset["train"], 
@@ -114,10 +139,10 @@ def load_scicite_data(tokenizer, args):
 
 def load_acl_arc_data(tokenizer, args):
     """
-    Loads and tokenizes the ACL-ARC dataset from Hugging Face.
+    Loads and tokenizes the ACL-ARC dataset from Hugging Face (using a script-free repository).
     """
     print("Loading ACL-ARC dataset from Hugging Face...")
-    raw_dataset = load_dataset("kejian/ACL-ARC", trust_remote_code=True)
+    raw_dataset = load_dataset("hrithikpiyush/acl-arc")
     
     train_dataset = preprocess_dataset(
         raw_dataset["train"], 
@@ -125,8 +150,7 @@ def load_acl_arc_data(tokenizer, args):
         label_col="intent", 
         tokenizer=tokenizer, 
         max_length=args.max_length, 
-        quick_test=args.quick_test,
-        label_map=ACL_ARC_LABEL_MAP
+        quick_test=args.quick_test
     )
     
     val_dataset = preprocess_dataset(
@@ -135,8 +159,7 @@ def load_acl_arc_data(tokenizer, args):
         label_col="intent", 
         tokenizer=tokenizer, 
         max_length=args.max_length, 
-        quick_test=args.quick_test,
-        label_map=ACL_ARC_LABEL_MAP
+        quick_test=args.quick_test
     )
     
     test_dataset = preprocess_dataset(
@@ -145,8 +168,7 @@ def load_acl_arc_data(tokenizer, args):
         label_col="intent", 
         tokenizer=tokenizer, 
         max_length=args.max_length, 
-        quick_test=args.quick_test,
-        label_map=ACL_ARC_LABEL_MAP
+        quick_test=args.quick_test
     )
     
     num_classes = len(ACL_ARC_LABEL_MAP)
